@@ -1,0 +1,93 @@
+name: Windows Python Auto Builds
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  Build:
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14', '3.14t']
+
+    steps:
+      - name: Generate date tag
+        id: date_tag
+        shell: pwsh
+        run: |
+          $tag = (Get-Date).ToString("yyyyMMdd")
+          echo "REL_TAG=$tag" >> $env:GITHUB_ENV
+          echo "NAME_TAG=Release $tag" >> $env:GITHUB_ENV
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Fetch remote code
+        shell: bash
+        run: |
+          git remote set-url origin https://github.com/Tencent/ncnn.git
+          git fetch origin
+          git checkout origin/$(git remote show origin | sed -n '/HEAD branch/s/.*: //p') -f
+
+          git submodule init
+          git submodule update --recursive
+
+      - name: Setup-python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1
+        with:
+          vulkan-version: latest
+
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Install-deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest setuptools wheel
+
+      - name: Build ncnn
+        run: |
+          mkdir build
+          cd build
+          cmake -A x64 -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON -DNCNN_PYTHON=ON -DNCNN_AVX2=ON -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF ..
+          cmake --build . --config Release -j 4
+
+      - name: Zip folder
+        run: |
+          7z a -t7z -m0=LZMA2 -mmt=on -mx=3 -md=4m -mfb=32 -ms=1g -mqs=on -sccUTF-8 -mtc=on -mta=on -mhe=on `
+            ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}.7z `
+            build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}
+          path: |
+            ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}.7z
+
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.REL_TAG }}
+          name: ${{ env.NAME_TAG }}
+          draft: false
+          prerelease: false
+          files: |
+            ncnn*.7z
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
