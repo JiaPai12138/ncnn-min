@@ -70,15 +70,15 @@ jobs:
       - name: Zip folder
         run: |
           7z a -t7z -m0=LZMA2 -mmt=on -mx=3 -md=4m -mfb=32 -ms=1g -mqs=on -sccUTF-8 -mtc=on -mta=on -mhe=on `
-            ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}.7z `
+            ncnn-${{ env.REL_TAG }}-py${{ matrix.python-version }}.7z `
             build
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}
+          name: ncnn-${{ env.REL_TAG }}-py${{ matrix.python-version }}
           path: |
-            ncnn-${{ env.NAME_TAG }}-py${{ matrix.python-version }}.7z
+            ncnn-${{ env.REL_TAG }}-py${{ matrix.python-version }}.7z
 
       - name: Update GitHub Release
         uses: softprops/action-gh-release@v2
