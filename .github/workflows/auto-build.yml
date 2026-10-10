@@ -27,7 +27,7 @@ jobs:
           echo "NAME_TAG=Release $tag" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Fetch remote code
         shell: bash
